@@ -8,14 +8,41 @@ Runs automatically in the background on every message. No commands needed.
 
 ## Live session dashboard
 
-Type `show dashboard` at any point and get a full interactive breakdown of your session:
+Type `show dashboard` in any conversation running this skill and get a full interactive breakdown:
 
-- **Overview** — score trend chart, token used vs optimal bars, top issues with expandable fix tips
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Prompt Coach Dashboard                         [Copy summary]  │
+├──────────┬──────────┬─────────────┬─────────────┬──────────────┤
+│ Avg score│ Prompts  │ Used/Optimal│ $ wasted    │ Context      │
+│  66/100  │    16    │  214 / 108  │  $0.00032   │  ~1% healthy │
+│ ↑+4 last │ 3 risks  │ 106 wasted  │ ~$0.01/mo   │              │
+├──────────┴──────────┴─────────────┴─────────────┴──────────────┤
+│ [Overview] [vs last session] [Improvement plan] [PE scorecard] │
+├─────────────────────────────────────────────────────────────────┤
+│ Score trend                  │ Tokens used vs optimal          │
+│  100 ┤          ·· target    │  30 ┤                           │
+│   85 ┤- - - - - - - - - - -  │  20 ┤ █                         │
+│   70 ┤    ╭─╮   ╭╮   ╭╮      │  10 ┤ █ ▓ █   █   █   █        │
+│   55 ┤╮ ╭╯  ╰───╯ ╰──╯ ╰─    │   0 ┤─────────────────────── │
+│      └──────────────────      │      P1 P2 P3 P4 P5 P6 P7    │
+├─────────────────────────────────────────────────────────────────┤
+│ Top issues          │ PE Scorecard                             │
+│ #1 vague scope  6x  │ Clarity     ████████░░  14/20 Needs work │
+│ #2 throat-clear 3x  │ Concision   ██████░░░░  12/20 Needs work │
+│ #3 no format    2x  │ Context     ████████████ 18/20 Good      │
+│    [fix ▾]          │ Structure   ██████████░  16/20 Good      │
+│                     │ Specificity ████░░░░░░    8/20 Critical  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**4 tabs:**
+- **Overview** — score trend, token used vs optimal bars, top issues with expandable fix tips
 - **vs last session** — side-by-side comparison with ↑↓ delta arrows on every metric
-- **Improvement plan** — your 3 personalized focus areas ranked by $ impact, each with a concrete drill
-- **PE scorecard** — Anthropic's 5 dimensions scored out of 20, progress bars, best and worst prompt
+- **Improvement plan** — 3 personalized focus areas ranked by $ impact with daily drills
+- **PE scorecard** — Anthropic's 5 dimensions scored, progress bars, best and worst prompt
 
-The dashboard populates with real data from your session — not placeholder numbers. Copy the summary at the end and paste it into your next session to enable the "vs last session" comparison.
+Populates with real data from your session. Copy the summary at the end to enable "vs last session" on your next session.
 
 ---
 
