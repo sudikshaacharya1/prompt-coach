@@ -217,239 +217,234 @@ Use this log to power the dashboard, audit, and track recurring issues.
 
 ---
 
-## PART 5 — DASHBOARD (React artifact)
+## PART 5 — DASHBOARD (HTML artifact)
 
 **Trigger:** User says "show dashboard", "prompt dashboard", "my stats", "show my performance", "how am I doing", or similar.
 
-**CRITICAL INSTRUCTION:** Do NOT design a dashboard from scratch. Copy the EXACT template below and only replace the SESSION_DATA const with real values from this conversation. Every prompt the user has sent this session must appear as one entry.
+### Step 0 — Ask the user which mode they want (ALWAYS do this first)
 
-### Step 1 — Build SESSION_DATA from conversation history
+Before building anything, ask:
 
-Scan back through every user message in this conversation. For each one (skip casual chat like "thanks", "ok"):
-- Count words × 1.3 = tokens_used
-- Score it across 5 PE dimensions
-- Identify top dimension violated and sub-issue
-- Estimate tokens_optimized for the lean rewrite
+```
+📊 Dashboard ready — which mode do you want?
 
-### Step 2 — Use this EXACT React template, fill in SESSION_DATA only
+**A) Live dashboard** — opens as a persistent artifact that updates as you chat. Instant to load, always current. (Recommended)
 
-```jsx
-import { useState } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer, Cell, Legend } from "recharts";
+**B) On-demand snapshot** — generated fresh when you ask. Shows full session history but takes 60–90 seconds to build since it re-scans every prompt from scratch.
 
-// ── FILL THIS IN WITH REAL DATA FROM THE CONVERSATION ──
-const SESSION_DATA = [
-  { n: 1, preview: "first 5 words...", score: 55, tokensUsed: 49, tokensOptimal: 13, dimension: "concision", subIssue: "throat-clearing" },
-  { n: 2, preview: "first 5 words...", score: 72, tokensUsed: 20, tokensOptimal: 14, dimension: "clarity", subIssue: "no imperative verb" },
-  // one entry per user prompt in this session
-];
-// ── END DATA ──
+Reply A or B.
+```
 
-const COLORS = { good: "#22c55e", warn: "#f59e0b", bad: "#ef4444", neutral: "#6b7280", optimal: "#22c55e", used: "#475569" };
-const scoreColor = s => s >= 75 ? COLORS.good : s >= 50 ? COLORS.warn : COLORS.bad;
-const badge = s => s >= 75 ? "Good" : s >= 50 ? "Needs Work" : "Critical";
+Then wait for their reply before doing anything else.
 
-export default function PromptDashboard() {
-  const [expandedIssue, setExpandedIssue] = useState(null);
+---
 
-  if (SESSION_DATA.length < 2) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center text-slate-400">
-          <div className="text-4xl mb-4">📊</div>
-          <div className="text-xl font-semibold text-white mb-2">Keep chatting!</div>
-          <div>Dashboard populates after 2+ prompts</div>
-        </div>
-      </div>
-    );
-  }
+### Mode A — Live dashboard
 
-  // ── computed stats ──
-  const avgScore = Math.round(SESSION_DATA.reduce((s, p) => s + p.score, 0) / SESSION_DATA.length);
-  const totalUsed = SESSION_DATA.reduce((s, p) => s + p.tokensUsed, 0);
-  const totalOptimal = SESSION_DATA.reduce((s, p) => s + p.tokensOptimal, 0);
-  const totalSaved = totalUsed - totalOptimal;
-  const wastePct = Math.round((totalSaved / totalUsed) * 100);
+**How it works:**
+- User says "show dashboard" → Claude renders the live dashboard widget (pure HTML, no JS libraries)
+- User says "update dashboard" → Claude scans the session, builds a SESSION array of all prompts with scores and issues, then re-renders the widget with that data hardcoded in
+- Dashboard renders instantly — no re-scanning at render time, data is already baked in
+- No manual logging — Claude does all the work on "update dashboard"
 
-  // issue frequency
-  const issueMap = {};
-  SESSION_DATA.forEach(p => {
-    const key = p.subIssue;
-    if (!issueMap[key]) issueMap[key] = { count: 0, dimension: p.dimension, examples: [] };
-    issueMap[key].count++;
-    if (issueMap[key].examples.length < 1) issueMap[key].examples.push(p.preview);
-  });
-  const topIssues = Object.entries(issueMap).sort((a, b) => b[1].count - a[1].count).slice(0, 3);
+**When user says "update dashboard":**
+1. Scan every user message this session (skip casual chat)
+2. For each prompt: score it, identify top issue, count words × 1.3 = tokens
+3. Build a SESSION array with all entries
+4. Render the widget below with SESSION hardcoded
 
-  // dimension scores
-  const dims = ["clarity", "concision", "context", "structure", "specificity"];
-  const dimCounts = dims.map(d => ({
-    name: d.charAt(0).toUpperCase() + d.slice(1),
-    flagged: SESSION_DATA.filter(p => p.dimension === d).length,
-    avgPts: Math.round(20 - (SESSION_DATA.filter(p => p.dimension === d).length / SESSION_DATA.length) * 20),
-  }));
+**Widget template — use this EXACTLY, only swap SESSION data:**
 
-  // token chart data
-  const tokenData = SESSION_DATA.map(p => ({ name: `P${p.n}`, used: p.tokensUsed, optimal: p.tokensOptimal }));
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-sans)}
+.w{padding:1rem 0}
+.kg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.kc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.875rem}
+.kl{font-size:11px;color:var(--color-text-secondary);margin-bottom:5px}
+.kv{font-size:20px;font-weight:500}
+.ks{font-size:11px;color:var(--color-text-secondary);margin-top:3px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem;margin-bottom:10px}
+.cl{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:10px}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;align-items:center}
+.row:last-child{border-bottom:none}
+.ir{display:flex;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);align-items:flex-start}
+.ir:last-child{border-bottom:none}
+.bdg{font-size:10px;font-weight:500;padding:2px 6px;border-radius:var(--border-radius-md);flex-shrink:0;margin-top:1px}
+.dr{margin-bottom:9px}
+.dh{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.bt{background:var(--color-background-secondary);border-radius:4px;height:5px}
+.bf{height:5px;border-radius:4px}
+</style>
 
-  // fix tips map
-  const fixTips = {
-    "throat-clearing": 'Delete "I was wondering if", "Could you maybe", "Hey Claude" — start with the verb',
-    "no imperative verb": 'Start with an action word: "Explain", "List", "Write", "Summarize"',
-    "hedging": 'Remove "maybe", "sort of", "if possible", "try to" — just ask directly',
-    "no format hint": 'Add "in 3 bullets", "as a table", "in one sentence" to get the right output first try',
-    "vague scope": 'Add audience, length, or depth: "for a beginner", "in 2 sentences", "in technical detail"',
-    "redundant context": "Don't re-explain what Claude already knows from earlier in the conversation",
-    "preamble": 'Collapse: "I have X and want Y" → "Summarize Y in X:"',
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-900 text-white p-6 font-sans">
-      <div className="max-w-5xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">📊 Prompt Coach Dashboard</h1>
-            <p className="text-slate-400 text-sm mt-1">{SESSION_DATA.length} prompts analyzed this session</p>
-          </div>
-          <button
-            onClick={() => {
-              const txt = `Prompt Coach Report
-Avg Score: ${avgScore}/100
-Prompts: ${SESSION_DATA.length}
-Tokens used: ${totalUsed} | Optimal: ${totalOptimal} | Saved: ${totalSaved} (${wastePct}% waste)
-Top issue: ${topIssues[0]?.[0]} (${topIssues[0]?.[1].count}x)`;
-              navigator.clipboard.writeText(txt);
-            }}
-            className="bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg transition-colors"
-          >
-            📋 Copy Summary
-          </button>
-        </div>
-
-        {/* KPI cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[
-            { label: "Avg Score", value: `${avgScore}/100`, color: scoreColor(avgScore), sub: badge(avgScore) },
-            { label: "Prompts Analyzed", value: SESSION_DATA.length, color: "#94a3b8", sub: "this session" },
-            { label: "Tokens Used vs Optimal", value: `${totalUsed} / ${totalOptimal}`, color: COLORS.warn, sub: `${totalSaved} wasted` },
-            { label: "Waste", value: `${wastePct}%`, color: wastePct > 40 ? COLORS.bad : wastePct > 20 ? COLORS.warn : COLORS.good, sub: `${totalSaved} tokens saved if fixed` },
-          ].map((k, i) => (
-            <div key={i} className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-              <div className="text-slate-400 text-xs mb-1">{k.label}</div>
-              <div className="text-2xl font-bold" style={{ color: k.color }}>{k.value}</div>
-              <div className="text-slate-500 text-xs mt-1">{k.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          {/* Score trend */}
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Score Trend</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={SESSION_DATA.map(p => ({ name: `P${p.n}`, score: p.score, preview: p.preview }))}>
-                <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
-                  formatter={(v, n, props) => [v + "/100", props.payload.preview]}
-                />
-                <ReferenceLine y={85} stroke="#22c55e" strokeDasharray="4 2" label={{ value: "target", fill: "#22c55e", fontSize: 10 }} />
-                <Line type="monotone" dataKey="score" stroke="#f59e0b" strokeWidth={2} dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  return <circle key={cx} cx={cx} cy={cy} r={4} fill={scoreColor(payload.score)} />;
-                }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Token usage */}
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Tokens Used vs Optimal</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={tokenData}>
-                <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-                <Bar dataKey="used" name="Tokens Used" fill="#475569" radius={[3,3,0,0]} />
-                <Bar dataKey="optimal" name="Tokens Optimal" fill="#22c55e" radius={[3,3,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          {/* Top issues */}
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">Top Issues</h2>
-            {topIssues.map(([issue, data], i) => (
-              <div key={issue} className="mb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: i === 0 ? "#ef444422" : "#f59e0b22", color: i === 0 ? COLORS.bad : COLORS.warn }}>#{i + 1}</span>
-                    <span className="text-sm font-medium">{issue}</span>
-                    <span className="text-xs text-slate-500">{data.count}×</span>
-                  </div>
-                  <button onClick={() => setExpandedIssue(expandedIssue === issue ? null : issue)} className="text-xs text-slate-500 hover:text-slate-300">
-                    {expandedIssue === issue ? "▲ hide" : "💡 fix"}
-                  </button>
-                </div>
-                <div className="text-xs text-slate-500 mt-1 ml-8">e.g. "{data.examples[0]}"</div>
-                {expandedIssue === issue && (
-                  <div className="mt-2 ml-8 text-xs bg-slate-700 rounded p-2 text-slate-300">
-                    {fixTips[issue] || "Remove unnecessary words and be more direct."}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* PE Scorecard */}
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-300 mb-3">PE Dimension Scorecard</h2>
-            {dimCounts.map(d => (
-              <div key={d.name} className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-slate-300">{d.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">{d.avgPts}/20</span>
-                    <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: d.avgPts >= 16 ? "#22c55e22" : d.avgPts >= 10 ? "#f59e0b22" : "#ef444422", color: d.avgPts >= 16 ? COLORS.good : d.avgPts >= 10 ? COLORS.warn : COLORS.bad }}>
-                      {d.avgPts >= 16 ? "Good" : d.avgPts >= 10 ? "Needs Work" : "Critical"}
-                    </span>
-                  </div>
-                </div>
-                <div className="w-full bg-slate-700 rounded-full h-1.5">
-                  <div className="h-1.5 rounded-full transition-all" style={{ width: `${(d.avgPts / 20) * 100}%`, backgroundColor: d.avgPts >= 16 ? COLORS.good : d.avgPts >= 10 ? COLORS.warn : COLORS.bad }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Best & worst */}
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { label: "🏆 Best Prompt", prompt: [...SESSION_DATA].sort((a,b) => b.score - a.score)[0] },
-            { label: "⚠️ Needs Most Work", prompt: [...SESSION_DATA].sort((a,b) => a.score - b.score)[0] },
-          ].map(({ label, prompt }) => (
-            <div key={label} className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-              <div className="text-xs font-semibold text-slate-400 mb-2">{label}</div>
-              <div className="text-sm text-slate-300 italic">"{prompt.preview}..."</div>
-              <div className="text-xs mt-2" style={{ color: scoreColor(prompt.score) }}>{prompt.score}/100 · {prompt.tokensUsed} tokens</div>
-            </div>
-          ))}
-        </div>
-
-      </div>
+<div class="w">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem">
+    <div>
+      <div style="font-size:16px;font-weight:500;color:var(--color-text-primary)">Prompt coach — live</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-top:3px" id="sub"></div>
     </div>
-  );
+    <button onclick="clearAll()" style="font-size:12px;padding:5px 12px;cursor:pointer;background:transparent;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);font-family:var(--font-sans)">Clear</button>
+  </div>
+  <div class="kg" id="kpis"></div>
+  <div class="card"><div class="cl">Score history</div><div id="hist"></div></div>
+  <div class="card"><div class="cl">Top issues</div><div id="iss"></div></div>
+  <div class="card"><div class="cl">PE scorecard</div><div id="dims"></div></div>
+</div>
+
+<script>
+// ── REPLACE THIS ARRAY WITH REAL SESSION DATA ──
+const SESSION=[
+  {n:1,preview:"first 5 words of prompt",score:55,issue:"throat-clearing"},
+  {n:2,preview:"next prompt preview",score:78,issue:"vague scope"},
+  // one entry per user prompt this session
+];
+// ── END SESSION DATA ──
+
+const RC=[["#FCEBEB","#791F1F"],["#FAEEDA","#633806"],["#EAF3DE","#27500A"],["#E6F1FB","#0C447C"]];
+const FX={"vague scope":"Add output format + what to change","throat-clearing":"Delete everything before your first verb","no format hint":"Add 'in 3 bullets' or 'as a table'","missing context":"Add who it's for","no imperative verb":"Start with Explain / Write / List","preamble":"Collapse to one imperative sentence"};
+const DIMS=["clarity","concision","context","structure","specificity"];
+const DIM_ISSUES={"clarity":["no imperative verb","missing context"],"concision":["throat-clearing","preamble","caps"],"context":["redundant","over-injection"],"structure":["no format hint"],"specificity":["vague scope","vague"]};
+const sc=s=>s>=75?"#3B6D11":s>=50?"#854F0B":"#A32D2D";
+const slbl=s=>s>=75?"Good":s>=50?"Needs work":"Critical";
+let log=SESSION;
+
+async function init(){
+  try{await window.storage.set("pc_log_v3",JSON.stringify(log));}catch(e){}
+  render();
 }
+
+async function clearAll(){
+  if(!confirm("Clear all data?"))return;
+  log=[];
+  try{await window.storage.delete("pc_log_v3");}catch(e){}
+  render();
+}
+
+function render(){
+  const N=log.length;
+  const avg=N?Math.round(log.reduce((a,p)=>a+p.score,0)/N):0;
+  document.getElementById("sub").textContent=`${N} prompts · avg ${avg}/100 · updated now`;
+
+  const topEntry=Object.entries(log.filter(p=>p.issue&&p.issue!=="none").reduce((m,p)=>{m[p.issue]=(m[p.issue]||0)+1;return m;},{})).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById("kpis").innerHTML=[
+    {l:"Avg score",v:`${avg}/100`,c:sc(avg),s:slbl(avg)},
+    {l:"Prompts tracked",v:N,c:"var(--color-text-primary)",s:`${log.filter(p=>p.issue&&p.issue!=="none").length} with issues`},
+    {l:"Top issue",v:topEntry?topEntry[0]:"none",c:topEntry?"#854F0B":"var(--color-text-secondary)",s:topEntry?`${topEntry[1]}× this session`:"—"},
+  ].map(k=>`<div class="kc"><div class="kl">${k.l}</div><div class="kv" style="color:${k.c};font-size:${String(k.v).length>9?"14px":"20px"}">${k.v}</div><div class="ks">${k.s}</div></div>`).join("");
+
+  document.getElementById("hist").innerHTML=N?log.slice(-10).reverse().map(p=>`
+  <div class="row">
+    <span style="color:var(--color-text-secondary);max-width:62%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">P${p.n} — ${p.preview}</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      ${p.issue&&p.issue!=="none"?`<span style="font-size:10px;color:var(--color-text-secondary)">${p.issue}</span>`:""}
+      <span style="font-weight:500;color:${sc(p.score)}">${p.score}/100</span>
+    </div>
+  </div>`).join(""):`<div style="font-size:12px;color:var(--color-text-secondary);padding:1rem 0;text-align:center">No prompts yet</div>`;
+
+  const im={};
+  log.filter(p=>p.issue&&p.issue!=="none").forEach(p=>{if(!im[p.issue])im[p.issue]={c:0,ex:[]};im[p.issue].c++;if(im[p.issue].ex.length<1)im[p.issue].ex.push(p.preview);});
+  const top=Object.entries(im).sort((a,b)=>b[1].c-a[1].c).slice(0,4);
+  document.getElementById("iss").innerHTML=top.map(([nm,d],i)=>`
+  <div class="ir">
+    <span class="bdg" style="background:${RC[Math.min(i,3)][0]};color:${RC[Math.min(i,3)][1]}">#${i+1}</span>
+    <div style="min-width:0;flex:1">
+      <div style="font-size:13px;color:var(--color-text-primary)">${nm} <span style="font-size:11px;color:var(--color-text-secondary)">${d.c}×</span></div>
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">"${d.ex[0]}"</div>
+      ${FX[nm]?`<div style="font-size:11px;color:var(--color-text-secondary);background:var(--color-background-secondary);padding:4px 8px;border-radius:var(--border-radius-md);margin-top:4px">${FX[nm]}</div>`:""}
+    </div>
+  </div>`).join("");
+
+  document.getElementById("dims").innerHTML=DIMS.map(d=>{
+    const related=DIM_ISSUES[d]||[];
+    const flagged=log.filter(p=>related.some(r=>p.issue&&p.issue.toLowerCase().includes(r))).length;
+    const pts=N?Math.round(20-(flagged/N)*20):20;
+    const c=pts>=16?"#3B6D11":pts>=10?"#854F0B":"#A32D2D";
+    const bg=pts>=16?"#EAF3DE":pts>=10?"#FAEEDA":"#FCEBEB";
+    return `<div class="dr"><div class="dh"><span style="font-size:12px;color:var(--color-text-primary)">${d[0].toUpperCase()+d.slice(1)}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:11px;color:var(--color-text-secondary)">${pts}/20</span><span style="font-size:10px;padding:1px 6px;border-radius:var(--border-radius-md);background:${bg};color:${c}">${pts>=16?"Good":pts>=10?"Needs work":"Critical"}</span></div></div><div class="bt"><div class="bf" style="width:${Math.round(pts/20*100)}%;background:${c}"></div></div></div>`;
+  }).join("");
+}
+
+init();
+</script>
 ```
 
 ---
+
+### Mode B — On-demand snapshot (warn first)
+
+Before building, show this warning:
+
+```
+⏱️ On-demand dashboard — this will take 60–90 seconds to generate since I need to re-scan all [N] prompts and hand-draw every chart from scratch. 
+
+Starting now...
+```
+
+Then proceed with the full static HTML + SVG build below.
+
+**CRITICAL INSTRUCTIONS for Mode B:**
+1. Use the `show_widget` / Visualizer tool — NOT a file artifact
+2. Pure static HTML + inline SVG — NO JavaScript, NO external libraries, NO CDN
+3. All charts hand-drawn SVG — rectangles for bars, polylines for trend lines
+4. Hardcode all values directly into HTML as static text
+
+### Step 1 — Compute these values from conversation history
+
+Scan every user message (skip casual chat like "thanks", "ok", "yes"):
+- Count words × 1.3 = tokens_used per prompt
+- Score across 5 PE dimensions → overall score
+- Identify top dimension violated and sub-issue
+- tokens_optimized = lean rewrite word count × 1.3
+
+Then compute session totals:
+- avg_score = mean of all scores
+- total_used = sum of all tokens_used
+- total_optimal = sum of all tokens_optimized
+- total_saved = total_used − total_optimal
+- waste_pct = round((total_saved / total_used) × 100)
+- dollar_wasted = total_saved × 0.000003 (Sonnet rate)
+- dollar_monthly = dollar_wasted × 30
+- context_pct = round(total_used × 4 / 2000) — rough % of 200k window
+
+### Step 2 — Dashboard layout (pure HTML + SVG, no JS)
+
+Build these sections top to bottom, all visible at once (no tabs — tabs require JS):
+
+**Section 1: Header**
+- Title "Prompt coach" + subtitle "[N] prompts · avg [X]/100 · [Y]% waste"
+
+**Section 2: KPI cards (6 cards in 3×2 grid)**
+- Avg score (color-coded green/amber/red)
+- Prompts analyzed + issues count
+- Tokens used / optimal
+- $ wasted + monthly projection
+- Waste % + delta vs last session
+- Context window %
+
+**Section 3: Score trend (SVG polyline)**
+- viewBox="0 0 600 120"
+- Draw a polyline connecting score points — map score 0-100 to Y axis (0=bottom, 100=top)
+- Color dots by score: green ≥75, amber 50-74, red <50
+- Draw dotted green line at y=85 (target)
+- Label every 5th prompt on X axis
+
+**Section 5: Top issues (3 rows)**
+- Ranked list with colored badge (#1 red, #2 amber, #3 green)
+- Issue name + count + example prompt + fix tip — all visible, no expand needed
+
+**Section 6: PE scorecard (5 rows)**
+- One row per dimension with pts/20, status badge, and progress bar
+- All rendered as static HTML divs with inline width styles
+
+**Section 7: Best & worst prompt (2 cards side by side)**
+
+### Color reference (hardcode these hex values):
+- Good (≥75): text #3B6D11, bg #EAF3DE
+- Needs work (50-74): text #854F0B, bg #FAEEDA  
+- Critical (<50): text #A32D2D, bg #FCEBEB
+- Token bar used: #B4B2A9
+- Token bar optimal: #639922
+- Trend line: #378ADD
 
 ## PART 6 — SCORING RUBRIC (Anthropic PE Framework)
 
